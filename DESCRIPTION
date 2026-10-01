@@ -1,0 +1,26 @@
+Package: sbyoracle
+Title: Oracle Database Routines and Tagged SQL Diagnostic Reports
+Version: 0.1.0
+Authors@R: person("Joao B. G.", "de Brito", role = c("aut", "cre"),
+    email = "177784222+JoaoSabby@users.noreply.github.com")
+Description: Provides a growing collection of R routines for Oracle Database
+    19c and later. Generates comprehensive diagnostic reports for tagged SQL
+    statements using an explicit DBI connection, including cursor metadata,
+    execution plans, resource statistics, optimizer settings, captured bind
+    variables, and adaptive cursor sharing information. Real-Time SQL
+    Monitoring is disabled by default and can be explicitly enabled.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.1.0)
+Imports:
+    DBI,
+    glue,
+    stringr
+Suggests:
+    testthat (>= 3.0.0)
+Enhances: ROracle
+Config/testthat/edition: 3
+URL: https://github.com/JoaoSabby/sbyoracle
+BugReports: https://github.com/JoaoSabby/sbyoracle/issues
+Roxygen: list(markdown = TRUE)
+Config/roxygen2/version: 8.0.0
