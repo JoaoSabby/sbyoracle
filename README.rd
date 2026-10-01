@@ -10,8 +10,7 @@ an installable package. Comprehensive source review and performance optimization
 are outside this implementation stage.
 }
 \section{Installation}{
-Install with \code{remotes::install_github("JoaoSabby/sbyoracle")}. Before the
-initial implementation is merged, specify \code{ref = "codex/initial-r-package"}.
+Install with \code{remotes::install_github("JoaoSabby/sbyoracle")}.
 R 4.1.0 or later and DBI, glue, and stringr are required. Install ROracle and a
 compatible Oracle client separately when using that driver.
 }
@@ -129,4 +128,19 @@ writeLines(result$report, "oracle_query_report.txt", useBytes = TRUE)
 \url{https://docs.oracle.com/en/database/oracle/oracle-database/19/arpls/DBMS_XPLAN.html}
 
 \url{https://docs.oracle.com/en/database/oracle/oracle-database/19/dblic/Licensing-Information.html}
+}
+
+\section{Oracle 19c integration tests}{
+A dedicated workflow provisions Oracle Database 19.3, R 4.5.1, Oracle Instant
+Client 19c and ROracle. Configure repository secrets OCR_USERNAME and OCR_PASSWORD
+for Oracle Container Registry access. After merging the workflow, select Actions,
+Oracle 19c integration, Run workflow. Set ORACLE19C_INTEGRATION_ENABLED=true
+as a repository variable to enable execution on pushes to main.
+
+The live suite verifies all standard diagnostic sections, stored SQL, plan
+statistics, both marker forms, missing cursors, insufficient diagnostic
+privileges and connection preservation. SQL Monitoring remains disabled.
+Artifacts include reports, JUnit XML, R session information and container logs.
+Detailed prerequisites and local execution instructions are maintained in
+.github/oracle19c/README.md.
 }

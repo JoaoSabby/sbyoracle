@@ -11,8 +11,6 @@ Performance optimization and a comprehensive source audit are outside this stage
 ```r
 install.packages("remotes")
 remotes::install_github("JoaoSabby/sbyoracle")
-# Before the initial implementation is merged, install its proposed branch:
-remotes::install_github("JoaoSabby/sbyoracle", ref = "codex/initial-r-package")
 ```
 
 R 4.1.0 or later and `DBI`, `glue`, and `stringr` are required. Install `ROracle`
@@ -131,5 +129,20 @@ roxygen2::roxygenise(".")
 testthat::test_local(".")
 ```
 
-Tests use a simulated DBI connection to verify assembly, monitoring controls,
-unavailable sections, and validation. Live Oracle integration is a separate step.
+Unit tests use a simulated DBI connection to verify assembly, monitoring controls,
+unavailable sections, and validation. Real Oracle 19c integration is provided
+by the dedicated Oracle 19c integration workflow.
+
+Configure the repository secrets `OCR_USERNAME` and `OCR_PASSWORD` for Oracle
+Container Registry access, merge the workflow, then select **Actions > Oracle 19c
+integration > Run workflow**. Optionally set the repository variable
+`ORACLE19C_INTEGRATION_ENABLED=true` to run it on pushes to `main`.
+
+The environment provisions Oracle Database 19.3, R 4.5.1, Instant Client 19c,
+and ROracle. Tests validate all standard sections, measured plan rows, both tag
+forms, missing cursors, insufficient privileges, and connection preservation.
+Live monitoring remains disabled. Test reports, JUnit XML, session information,
+and container diagnostics are uploaded as artifacts.
+
+See [.github/oracle19c/README.md](.github/oracle19c/README.md) for setup,
+prerequisites, local execution, and the complete environment specification.
