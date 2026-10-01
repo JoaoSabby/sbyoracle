@@ -7,13 +7,19 @@ This workflow validates the installed sbyoracle package against Oracle Database
 
 - GitHub-hosted Ubuntu 22.04 x86-64 runner.
 - Oracle Database Enterprise Edition 19.3.0.0 in an ephemeral Docker container.
-- R 4.5.1, selected within the version range documented by the ROracle installer.
+- R 4.6.0, explicitly selected in both the integration and package-check workflows.
 - Oracle Instant Client Basic and SDK 19.32 with verified SHA-256 checksums.
 - ROracle compiled from CRAN source against the configured OCI headers/libraries.
 
 The database remains Oracle 19c even though the client uses a later 19c update.
 The database tag fixes the base release, not an Oracle Release Update. Testing a
 specific patched 19c release requires an appropriately prepared image.
+
+The workflow checks the installed R version before compiling ROracle, and the
+integration runner also requires R 4.6.0 or later. ROracle is compiled against
+this R installation; compatibility is verified by the driver build and live
+database tests rather than inferred from the ROracle installation guide, which
+currently documents testing through R 4.5.1.
 
 ## Repository configuration
 
@@ -82,7 +88,8 @@ keeps monitoring disabled and does not request licensed monitoring resources.
 
 ## Local execution with an independently provisioned Oracle 19c database
 
-Install the Oracle client, ROracle, dependencies, and the package first. Provision
+Install R 4.6.0 or later, the Oracle client, ROracle, dependencies, and the package
+first. Provision
 equivalent test users and diagnostic grants in an isolated database. Set the
 following environment variables without writing passwords into source files:
 
