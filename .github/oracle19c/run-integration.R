@@ -1,4 +1,7 @@
 # Fail explicitly when a requested integration environment is incomplete.
+if (getRversion() < numeric_version("4.6.0")) {
+  stop("Oracle integration requires R 4.6.0 or later.")
+}
 if (!identical(Sys.getenv("SBYORACLE_TEST_ORACLE19C"), "true")) {
   stop("Set SBYORACLE_TEST_ORACLE19C=true to execute the Oracle 19c suite.")
 }
