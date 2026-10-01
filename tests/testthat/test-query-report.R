@@ -73,3 +73,20 @@ test_that("literal marker quoting preserves SQL and value formatting is scalar",
   expect_match(result$report, sql_query, fixed = TRUE)
   expect_length(sbyoracle:::sby_oracle_report_value(as.POSIXct(c("2026-10-01", "2026-10-02"))), 1L)
 })
+
+test_that("identified cursors still expose failures in every diagnostic section", {
+  conn <- report_test_connection(diagnostic_error = TRUE)
+  result <- sby_oracle_query_report(conn@state$sql_query, "PREDY_RFM_20261001_1451", conn = conn)
+  expect_true(result$ok)
+  titles <- c("SQL TEXT STORED BY ORACLE", "CURSOR METRICS", "COMPLETE EXECUTION PLAN",
+    "ADAPTIVE EXECUTION PLAN", "EXECUTION STATISTICS BY PLAN OPERATION",
+    "OPTIMIZER ENVIRONMENT", "CAPTURED BIND VARIABLES", "CHILD CURSOR NONSHARING REASONS",
+    "ADAPTIVE CURSOR SHARING - SELECTIVITY", "ADAPTIVE CURSOR SHARING - STATISTICS")
+  for (title in titles) {
+    section <- result$sections[grepl(paste0("\n", title, "\n"), result$sections, fixed = TRUE)]
+    expect_length(section, 1L)
+    expect_match(section, "<unavailable>\nORA-01031", fixed = TRUE)
+  }
+  expect_length(conn@state$queries, 11L)
+  expect_match(result$report, "FINAL CURSOR IDENTIFICATION", fixed = TRUE)
+})

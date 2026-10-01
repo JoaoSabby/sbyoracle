@@ -1,0 +1,131 @@
+name: Oracle 19c integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oracle19c-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  oracle19c:
+    if: github.event_name == 'workflow_dispatch' || vars.ORACLE19C_INTEGRATION_ENABLED == 'true'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      ORACLE19C_IMAGE: container-registry.oracle.com/database/enterprise:19.3.0.0
+      SBYORACLE_TEST_ORACLE19C: 'true'
+      SBYORACLE_TEST_DBNAME: //127.0.0.1:1521/ORCLPDB1
+      SBYORACLE_TEST_USERNAME: SBYORACLE_TEST
+      SBYORACLE_LIMITED_USERNAME: SBYORACLE_LIMITED
+      R_KEEP_PKG_SOURCE: 'yes'
+      _R_CHECK_FORCE_SUGGESTS_: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure artifact output
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/sbyoracle-oracle19c-results"
+          echo "SBYORACLE_REPORT_DIR=$RUNNER_TEMP/sbyoracle-oracle19c-results" >> "$GITHUB_ENV"
+
+      - name: Verify registry configuration and authenticate
+        env:
+          OCR_USERNAME: ${{ secrets.OCR_USERNAME }}
+          OCR_PASSWORD: ${{ secrets.OCR_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$OCR_USERNAME" || -z "$OCR_PASSWORD" ]]; then
+            echo "::error::Configure OCR_USERNAME and OCR_PASSWORD repository secrets with an Oracle Container Registry account and authentication token."
+            exit 1
+          fi
+          printf '%s' "$OCR_PASSWORD" |
+            docker login container-registry.oracle.com --username "$OCR_USERNAME" --password-stdin
+
+      - name: Generate credentials for the disposable database
+        shell: bash
+        run: |
+          set -euo pipefail
+          admin_password="Admin19c_$(openssl rand -hex 8)"
+          test_password="Test19c_$(openssl rand -hex 8)"
+          echo "::add-mask::$admin_password"
+          echo "::add-mask::$test_password"
+          {
+            echo "ORACLE_PWD=$admin_password"
+            echo "SBYORACLE_TEST_PASSWORD=$test_password"
+          } >> "$GITHUB_ENV"
+
+      - name: Start Oracle Database 19c
+        shell: bash
+        run: bash .github/oracle19c/start-database.sh
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.5.1'
+          use-public-rspm: true
+
+      - name: Install Oracle Instant Client 19c
+        shell: bash
+        run: bash .github/oracle19c/install-client.sh
+
+      - name: Install R dependencies and compile ROracle
+        shell: Rscript {0}
+        run: |
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          install.packages(c("DBI", "glue", "stringr", "testthat", "pkgload", "rcmdcheck"))
+          configure_args <- sprintf("--with-oci-lib=%s --with-oci-inc=%s",
+            Sys.getenv("OCI_LIB"), Sys.getenv("OCI_INC"))
+          install.packages("ROracle", type = "source", configure.args = configure_args)
+          stopifnot(requireNamespace("ROracle", quietly = TRUE))
+
+      - name: Wait for Oracle and provision diagnostic users
+        shell: bash
+        run: bash .github/oracle19c/prepare-database.sh
+
+      - name: Run unit tests
+        shell: Rscript {0}
+        run: testthat::test_local(".", stop_on_failure = TRUE)
+
+      - name: Install the package
+        shell: bash
+        run: R CMD INSTALL .
+
+      - name: Test the installed package against Oracle 19c
+        shell: bash
+        run: Rscript .github/oracle19c/run-integration.R
+
+      - name: Check the R package with ROracle installed
+        shell: Rscript {0}
+        run: rcmdcheck::rcmdcheck(args = "--no-manual", error_on = "warning")
+
+      - name: Capture container diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p "$SBYORACLE_REPORT_DIR"
+          if docker container inspect sbyoracle-oracle19c >/dev/null 2>&1; then
+            docker logs sbyoracle-oracle19c > "$SBYORACLE_REPORT_DIR/oracle-container.log" 2>&1
+            docker inspect --format '{{json .State}}' sbyoracle-oracle19c \
+              > "$SBYORACLE_REPORT_DIR/oracle-container-state.json"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: oracle19c-integration-results
+          path: ${{ runner.temp }}/sbyoracle-oracle19c-results
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Remove the disposable database and registry credentials
+        if: always()
+        shell: bash
+        run: |
+          docker rm -fv sbyoracle-oracle19c || true
+          docker logout container-registry.oracle.com || true

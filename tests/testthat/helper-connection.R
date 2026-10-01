@@ -12,6 +12,7 @@ methods::setMethod("dbGetQuery", c("sbyoracle_test_connection", "character"),
       return(data.frame(SQL_ID = "0123456789abc", CHILD_NUMBER = 2,
                         PLAN_HASH_VALUE = 123456789))
     }
+    if (conn@state$diagnostic_error) stop("ORA-01031: insufficient privileges")
     if (grepl("V$SQL_OPTIMIZER_ENV", statement, fixed = TRUE) && conn@state$section_error) {
       stop("ORA-01031: insufficient privileges")
     }
@@ -27,16 +28,22 @@ methods::setMethod("dbGetQuery", c("sbyoracle_test_connection", "character"),
     if (grepl("V$SQL_SHARED_CURSOR", statement, fixed = TRUE)) {
       return(data.frame(BIND_MISMATCH = "Y", OPTIMIZER_MISMATCH = "N"))
     }
-    data.frame(METRIC = "available", VALUE = 1)
+    standard_views <- c("V$SQL", "V$SQL_PLAN_STATISTICS_ALL", "V$SQL_OPTIMIZER_ENV",
+      "V$SQL_BIND_CAPTURE", "V$SQL_CS_SELECTIVITY", "V$SQL_CS_STATISTICS", "V$SQL_MONITOR")
+    if (any(vapply(standard_views, function(view) {
+      grepl(paste0("FROM ", view, "\n"), statement, fixed = TRUE)
+    }, logical(1L)))) return(data.frame(METRIC = "available", VALUE = 1))
+    stop("Unexpected SQL in the simulated connection.")
   })
 
 report_test_connection <- function(empty = FALSE, lookup_error = FALSE,
-                                   section_error = FALSE) {
+                                   section_error = FALSE, diagnostic_error = FALSE) {
   state <- new.env(parent = emptyenv())
   state$queries <- character()
   state$empty <- empty
   state$lookup_error <- lookup_error
   state$section_error <- section_error
+  state$diagnostic_error <- diagnostic_error
   state$sql_query <- "SELECT /*+ PREDY_RFM_20261001_1451 */ COUNT(*) FROM DUAL"
   methods::new("sbyoracle_test_connection", state = state)
 }
